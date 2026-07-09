@@ -8,10 +8,12 @@ from collections import Counter
 import requests
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from matplotlib.ticker import MaxNLocator
 
 OWNER = "Fasuiker"
 REPO = "Timeline4Things"
 OUT_PATH = "assets/star-history.svg"
+MONTHS_BACK = 2
 
 
 def fetch_stars(owner: str, repo: str) -> list[str]:
@@ -54,40 +56,30 @@ def fetch_stars(owner: str, repo: str) -> list[str]:
     return stars
 
 
-def compute_y_max(max_stars: int) -> int:
-    """Keep the line in the upper portion of the chart with readable ticks."""
-    if max_stars <= 0:
-        return 10
-    padded = max_stars * 1.2 + 1
-    if padded <= 10:
-        return 10
-    if padded <= 20:
-        return 20
-    if padded <= 50:
-        return int(math.ceil(padded / 5) * 5)
-    if padded <= 100:
-        return int(math.ceil(padded / 10) * 10)
-    magnitude = 10 ** math.floor(math.log10(padded))
-    return int(math.ceil(padded / magnitude) * magnitude)
-
-
-def build_cumulative_series(star_dates: list[str]):
-    """X-axis starts from today; never shows dates before today."""
+def get_chart_window(months_back: int = MONTHS_BACK) -> tuple[dt.date, dt.date]:
+    """From the 1st of the current month, go back `months_back` months to today."""
     today = dt.date.today()
+    end = today
+    start = today.replace(day=1)
+    for _ in range(months_back):
+        start = (start - dt.timedelta(days=1)).replace(day=1)
+    return start, end
+
+
+def compute_y_max(max_stars: int) -> float:
+    """Scale Y-axis to the actual star count with modest headroom (not fixed 10/20/50)."""
+    if max_stars <= 0:
+        return 5.0
+    padding = max(1.0, math.ceil(max_stars * 0.2))
+    return float(max_stars + padding)
+
+
+def build_cumulative_series(star_dates: list[str], months_back: int = MONTHS_BACK):
+    start, end = get_chart_window(months_back)
     daily = Counter(star_dates)
 
-    baseline = sum(count for day, count in daily.items() if day < today.isoformat())
+    baseline = sum(count for day, count in daily.items() if day < start.isoformat())
 
-    start = today
-    end = today
-    if star_dates:
-        last_star = dt.date.fromisoformat(max(star_dates))
-        end = max(today, last_star)
-
-    return _fill_daily_range(start, end, daily, baseline=baseline)
-
-
-def _fill_daily_range(start: dt.date, end: dt.date, daily: Counter, baseline: int = 0):
     dates: list[dt.date] = []
     counts: list[int] = []
     total = baseline
@@ -97,15 +89,6 @@ def _fill_daily_range(start: dt.date, end: dt.date, daily: Counter, baseline: in
         dates.append(cur)
         counts.append(total)
         cur += dt.timedelta(days=1)
-
-    # Same-day chart: extend one day forward so the line is visible (not a lone dot).
-    if len(dates) < 2:
-        anchor = end if dates else start
-        if not dates:
-            dates = [start]
-            counts = [baseline]
-        dates.append(anchor + dt.timedelta(days=1))
-        counts.append(counts[-1])
 
     return dates, counts
 
@@ -119,8 +102,9 @@ def draw_xkcd_chart(dates, counts, out_path: str):
     with plt.xkcd(scale=0.8, length=80, randomness=2):
         fig, ax = plt.subplots(figsize=(8.5, 4.2))
 
-        ax.plot(dates, counts, linewidth=2.8, marker="o", markersize=4, markevery=max(1, len(dates) // 12))
-        ax.scatter(dates[-1], counts[-1], s=45, zorder=5)
+        ax.plot(dates, counts, linewidth=2.8, marker="o", markersize=4, markevery=max(1, len(dates) // 10))
+        if counts:
+            ax.scatter(dates[-1], counts[-1], s=45, zorder=5)
 
         ax.set_title("Timeline4Things Stars Over Time", pad=14)
         ax.set_xlabel("Time")
@@ -128,33 +112,25 @@ def draw_xkcd_chart(dates, counts, out_path: str):
 
         ax.set_xlim(dates[0], dates[-1])
         ax.set_ylim(0, y_max)
+        ax.yaxis.set_major_locator(MaxNLocator(integer=True, nbins=5, min_n_ticks=3))
 
-        span_days = (dates[-1] - dates[0]).days
-        if span_days <= 7:
-            locator = mdates.DayLocator(interval=1)
-            formatter = mdates.DateFormatter("%Y-%m-%d")
-        elif span_days <= 60:
-            locator = mdates.DayLocator(interval=max(1, span_days // 7))
-            formatter = mdates.DateFormatter("%m-%d")
-        else:
-            locator = mdates.MonthLocator()
-            formatter = mdates.DateFormatter("%Y-%m")
-
-        ax.xaxis.set_major_locator(locator)
-        ax.xaxis.set_major_formatter(formatter)
+        ax.xaxis.set_major_locator(mdates.MonthLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+        ax.xaxis.set_minor_locator(mdates.WeekdayLocator(byweekday=mdates.MO))
 
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.grid(True, alpha=0.25)
 
-        label = f"{counts[-1]} star" if counts[-1] == 1 else f"{counts[-1]} stars"
-        ax.annotate(
-            label,
-            xy=(dates[-1], counts[-1]),
-            xytext=(-70, 25),
-            textcoords="offset points",
-            arrowprops=dict(arrowstyle="->", lw=1.2),
-        )
+        if counts:
+            label = f"{counts[-1]} star" if counts[-1] == 1 else f"{counts[-1]} stars"
+            ax.annotate(
+                label,
+                xy=(dates[-1], counts[-1]),
+                xytext=(-70, 25),
+                textcoords="offset points",
+                arrowprops=dict(arrowstyle="->", lw=1.2),
+            )
 
         fig.autofmt_xdate()
         fig.tight_layout()
@@ -167,7 +143,9 @@ def main():
     stars = fetch_stars(OWNER, REPO)
     dates, counts = build_cumulative_series(stars)
     draw_xkcd_chart(dates, counts, OUT_PATH)
-    print(f"Saved {OUT_PATH} ({counts[-1]} stars, {dates[0]} → {dates[-1]}, y_max={compute_y_max(max(counts))})")
+    print(
+        f"Saved {OUT_PATH} ({counts[-1]} stars, {dates[0]} → {dates[-1]}, y_max={compute_y_max(max(counts)):.0f})"
+    )
 
 
 if __name__ == "__main__":
