@@ -5,7 +5,7 @@ import type { TimelineOptions, Timeline as VisTimeline } from 'vis-timeline'
 import { useFilteredEvents } from '@/hooks/useFilteredEvents'
 import { useTimelineStore } from '@/store/timelineStore'
 import type { Category, TimelineDivider, TimelineEvent } from '@/types/timeline'
-import { parseDate } from '@/utils/dateScale'
+import { parseDate, panWindowByWheel } from '@/utils/dateScale'
 import {
   buildGroupLabel,
   buildPointContent,
@@ -114,6 +114,7 @@ function applyDividerStyles(container: HTMLElement, dividers: TimelineDivider[])
 
 function getTimelineOptions(scale: string): Partial<TimelineOptions> {
   const base: Partial<TimelineOptions> = {
+    height: 400,
     editable: {
       add: false,
       updateTime: true,
@@ -174,10 +175,12 @@ function getTimelineOptions(scale: string): Partial<TimelineOptions> {
 
 export function TimelineCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
   const timelineRef = useRef<VisTimeline | null>(null)
   const itemsRef = useRef<DataSet<Record<string, unknown>> | null>(null)
   const dividerIdsRef = useRef(new Set<string>())
   const syncingRef = useRef(false)
+  const viewportSourceRef = useRef<'timeline' | 'external'>('external')
 
   const events = useFilteredEvents()
   const dividers = useTimelineStore((s) => s.dividers)
@@ -187,7 +190,6 @@ export function TimelineCanvas() {
   const viewportEnd = useTimelineStore((s) => s.viewportEnd)
   const categories = useTimelineStore((s) => s.categories)
   const selectedEventId = useTimelineStore((s) => s.selectedEventId)
-  const setViewport = useTimelineStore((s) => s.setViewport)
   const selectEvent = useTimelineStore((s) => s.selectEvent)
   const openPanel = useTimelineStore((s) => s.openPanel)
   const openDividerPanel = useTimelineStore((s) => s.openDividerPanel)
@@ -206,6 +208,16 @@ export function TimelineCanvas() {
       }
     },
     [selectEvent, openPanel],
+  )
+
+  const handleRangeChange = useCallback(
+    (props: { start: Date; end: Date; byUser?: boolean }) => {
+      if (syncingRef.current) return
+      if (props.byUser === false) return
+      viewportSourceRef.current = 'timeline'
+      useTimelineStore.getState().setViewport(props.start, props.end)
+    },
+    [],
   )
 
   const handleMove = useCallback(
@@ -249,6 +261,8 @@ export function TimelineCanvas() {
       : new Timeline(containerRef.current, items, options)
 
     timeline.on('select', handleSelect)
+    timeline.on('rangechange', handleRangeChange)
+    timeline.on('rangechanged', handleRangeChange)
     timeline.on('timechange', handleTimeChange)
 
     timeline.on('doubleClick', (props) => {
@@ -277,11 +291,6 @@ export function TimelineCanvas() {
       }
     })
 
-    timeline.on('rangechanged', () => {
-      if (syncingRef.current) return
-      const win = timeline.getWindow()
-      setViewport(win.start, win.end)
-    })
 
     syncDividers(timeline, dividers, dividerIdsRef.current, containerRef.current)
 
@@ -322,12 +331,38 @@ export function TimelineCanvas() {
   useEffect(() => {
     const timeline = timelineRef.current
     if (!timeline) return
+    if (viewportSourceRef.current === 'timeline') {
+      viewportSourceRef.current = 'external'
+      return
+    }
     syncingRef.current = true
     timeline.setWindow(viewportStart, viewportEnd, { animation: false })
     requestAnimationFrame(() => {
       syncingRef.current = false
     })
   }, [viewportStart, viewportEnd])
+
+  useEffect(() => {
+    const wrap = wrapRef.current
+    if (!wrap) return
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return
+
+      const target = e.target as HTMLElement
+      if (target.closest('.vis-timeline')) return
+
+      e.preventDefault()
+
+      const { viewportStart, viewportEnd, setViewport } = useTimelineStore.getState()
+      const next = panWindowByWheel(viewportStart, viewportEnd, e)
+      viewportSourceRef.current = 'external'
+      setViewport(next.start, next.end)
+    }
+
+    wrap.addEventListener('wheel', onWheel, { passive: false })
+    return () => wrap.removeEventListener('wheel', onWheel)
+  }, [])
 
   useEffect(() => {
     const timeline = timelineRef.current
@@ -337,7 +372,7 @@ export function TimelineCanvas() {
   }, [selectedEventId])
 
   return (
-    <div className="timeline-canvas-wrap relative h-[400px] w-full">
+    <div ref={wrapRef} className="timeline-canvas-wrap relative h-[400px] w-full">
       <div ref={containerRef} className="timeline-canvas absolute inset-0" />
     </div>
   )

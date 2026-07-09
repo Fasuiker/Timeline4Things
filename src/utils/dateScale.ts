@@ -59,6 +59,23 @@ export function shiftWindow(start: Date, end: Date, ratio: number) {
   }
 }
 
+/** Match vis-timeline horizontal wheel pan speed. */
+export function panWindowByWheel(
+  start: Date,
+  end: Date,
+  event: Pick<WheelEvent, 'deltaX' | 'deltaY'>,
+): { start: Date; end: Date } {
+  const deltaY = -event.deltaY
+  const deltaX = event.deltaX
+  const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? deltaY : deltaX
+  const duration = end.getTime() - start.getTime()
+  const diff = (delta / 120) * (duration / 20)
+  return {
+    start: new Date(start.getTime() + diff),
+    end: new Date(end.getTime() + diff),
+  }
+}
+
 export function parseDate(value: string): Date {
   return new Date(value + (value.length === 10 ? 'T12:00:00' : ''))
 }

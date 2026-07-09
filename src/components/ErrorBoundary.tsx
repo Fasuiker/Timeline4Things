@@ -16,14 +16,14 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('Timeline Studio error:', error, info)
+    console.error('Timeline4Things error:', error, info)
   }
 
   render() {
     if (this.state.error) {
       return (
         <div style={{ padding: 24, fontFamily: 'system-ui, sans-serif' }}>
-          <h1 style={{ fontSize: 18, marginBottom: 8 }}>Timeline Studio 加载失败</h1>
+          <h1 style={{ fontSize: 18, marginBottom: 8 }}>Timeline4Things 加载失败</h1>
           <p style={{ color: '#64748b', marginBottom: 12 }}>
             页面运行时出错，请尝试刷新。若仍白屏，可清除浏览器 localStorage 后重试。
           </p>

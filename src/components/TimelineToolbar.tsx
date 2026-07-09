@@ -76,7 +76,7 @@ export function TimelineToolbar() {
       <header className="glass-toolbar">
         <div className="brand-mark">
           <div className="brand-icon">T</div>
-          <span className="brand-name">Timeline Studio</span>
+          <span className="brand-name">Timeline4Things</span>
         </div>
 
         <span className="save-badge">

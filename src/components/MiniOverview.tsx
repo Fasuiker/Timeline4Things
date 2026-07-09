@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
+import { format } from 'date-fns'
+import { zhCN } from 'date-fns/locale'
 import { useFilteredEvents } from '@/hooks/useFilteredEvents'
 import { useTimelineStore } from '@/store/timelineStore'
 import type { TimelineDivider, TimelineEvent } from '@/types/timeline'
@@ -71,10 +73,13 @@ export function MiniOverview() {
     setViewport(new Date(center - viewDuration / 2), new Date(center + viewDuration / 2))
   }
 
+  const viewportLabel = `${format(viewportStart, 'yyyy年M月d日', { locale: zhCN })} – ${format(viewportEnd, 'yyyy年M月d日', { locale: zhCN })}`
+
   return (
     <div className="border-t border-slate-200/60 bg-slate-50/50 px-5 py-3">
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">导航</span>
+        <span className="text-[10px] font-medium text-slate-500">{viewportLabel}</span>
         <span className="text-[10px] text-slate-400">拖动定位</span>
       </div>
 
