@@ -114,7 +114,7 @@ function applyDividerStyles(container: HTMLElement, dividers: TimelineDivider[])
 
 function getTimelineOptions(scale: string): Partial<TimelineOptions> {
   const base: Partial<TimelineOptions> = {
-    height: 400,
+    height: 600,
     editable: {
       add: false,
       updateTime: true,
@@ -372,7 +372,7 @@ export function TimelineCanvas() {
   }, [selectedEventId])
 
   return (
-    <div ref={wrapRef} className="timeline-canvas-wrap relative h-[400px] w-full">
+    <div ref={wrapRef} className="timeline-canvas-wrap relative h-[25rem] w-full">
       <div ref={containerRef} className="timeline-canvas absolute inset-0" />
     </div>
   )
