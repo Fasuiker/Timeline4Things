@@ -12,7 +12,6 @@ import matplotlib.dates as mdates
 OWNER = "Fasuiker"
 REPO = "Timeline4Things"
 OUT_PATH = "assets/star-history.svg"
-DEFAULT_LOOKBACK_DAYS = 14
 
 
 def fetch_stars(owner: str, repo: str) -> list[str]:
@@ -55,27 +54,6 @@ def fetch_stars(owner: str, repo: str) -> list[str]:
     return stars
 
 
-def fetch_repo_created_at(owner: str, repo: str) -> dt.date | None:
-    headers = {"Accept": "application/vnd.github+json"}
-    token = os.getenv("GITHUB_TOKEN")
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
-    try:
-        resp = requests.get(
-            f"https://api.github.com/repos/{owner}/{repo}",
-            headers=headers,
-            timeout=30,
-        )
-        if resp.ok:
-            created = resp.json().get("created_at", "")[:10]
-            if created:
-                return dt.date.fromisoformat(created)
-    except requests.RequestException:
-        pass
-    return None
-
-
 def compute_y_max(max_stars: int) -> int:
     """Keep the line in the upper portion of the chart with readable ticks."""
     if max_stars <= 0:
@@ -93,53 +71,41 @@ def compute_y_max(max_stars: int) -> int:
     return int(math.ceil(padded / magnitude) * magnitude)
 
 
-def build_cumulative_series(
-    star_dates: list[str],
-    repo_created: dt.date | None = None,
-    lookback_days: int = DEFAULT_LOOKBACK_DAYS,
-):
+def build_cumulative_series(star_dates: list[str]):
+    """X-axis starts from today; never shows dates before today."""
     today = dt.date.today()
-
-    if not star_dates:
-        start = today - dt.timedelta(days=lookback_days)
-        if repo_created and repo_created > start:
-            start = repo_created
-        return _fill_daily_range(start, today, Counter())
-
     daily = Counter(star_dates)
-    first_star = dt.date.fromisoformat(min(star_dates))
-    last_star = dt.date.fromisoformat(max(star_dates))
 
-    # Only show history from first real star; extend a little before if all stars are recent.
-    if first_star == last_star:
-        start = first_star - dt.timedelta(days=lookback_days)
-    else:
-        start = first_star
+    baseline = sum(count for day, count in daily.items() if day < today.isoformat())
 
-    if repo_created and start < repo_created:
-        start = repo_created
-
+    start = today
     end = today
-    return _fill_daily_range(start, end, daily)
+    if star_dates:
+        last_star = dt.date.fromisoformat(max(star_dates))
+        end = max(today, last_star)
+
+    return _fill_daily_range(start, end, daily, baseline=baseline)
 
 
-def _fill_daily_range(start: dt.date, end: dt.date, daily: Counter):
-    if end < start:
-        start = end
-
-    # Guarantee at least two points so matplotlib draws a line segment.
-    if start == end:
-        start = end - dt.timedelta(days=DEFAULT_LOOKBACK_DAYS)
-
+def _fill_daily_range(start: dt.date, end: dt.date, daily: Counter, baseline: int = 0):
     dates: list[dt.date] = []
     counts: list[int] = []
-    total = 0
+    total = baseline
     cur = start
     while cur <= end:
         total += daily.get(cur.isoformat(), 0)
         dates.append(cur)
         counts.append(total)
         cur += dt.timedelta(days=1)
+
+    # Same-day chart: extend one day forward so the line is visible (not a lone dot).
+    if len(dates) < 2:
+        anchor = end if dates else start
+        if not dates:
+            dates = [start]
+            counts = [baseline]
+        dates.append(anchor + dt.timedelta(days=1))
+        counts.append(counts[-1])
 
     return dates, counts
 
@@ -164,11 +130,11 @@ def draw_xkcd_chart(dates, counts, out_path: str):
         ax.set_ylim(0, y_max)
 
         span_days = (dates[-1] - dates[0]).days
-        if span_days <= 21:
+        if span_days <= 7:
+            locator = mdates.DayLocator(interval=1)
+            formatter = mdates.DateFormatter("%Y-%m-%d")
+        elif span_days <= 60:
             locator = mdates.DayLocator(interval=max(1, span_days // 7))
-            formatter = mdates.DateFormatter("%m-%d")
-        elif span_days <= 120:
-            locator = mdates.WeekdayLocator(byweekday=mdates.MO, interval=1)
             formatter = mdates.DateFormatter("%m-%d")
         else:
             locator = mdates.MonthLocator()
@@ -199,8 +165,7 @@ def draw_xkcd_chart(dates, counts, out_path: str):
 
 def main():
     stars = fetch_stars(OWNER, REPO)
-    created = fetch_repo_created_at(OWNER, REPO)
-    dates, counts = build_cumulative_series(stars, repo_created=created)
+    dates, counts = build_cumulative_series(stars)
     draw_xkcd_chart(dates, counts, OUT_PATH)
     print(f"Saved {OUT_PATH} ({counts[-1]} stars, {dates[0]} → {dates[-1]}, y_max={compute_y_max(max(counts))})")
 
