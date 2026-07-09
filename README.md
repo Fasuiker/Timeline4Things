@@ -254,7 +254,7 @@ cd Timeline4Things && npm install && npm run dev
 
 ## Star History
 
-![Star History](assets/star-history.svg)
+[![Star History Chart](https://api.star-history.com/svg?repos=Fasuiker/Timeline4Things&type=Date)](https://star-history.com/#Fasuiker/Timeline4Things&Date)
 
 ---
 
