@@ -15,7 +15,7 @@ Timeline4Things is a browser-based timeline workspace for marking what happened,
 
 <p align="center">
   <a href="https://fasuiker.github.io/Timeline4Things/">
-    <img src="docs/images/screenshot.png" alt="Timeline4Things — interactive timeline with events, dividers, and bottom navigator" width="920" />
+    <img src="assets/ScreenShot.png" alt="Timeline4Things — interactive timeline with events, dividers, and bottom navigator" width="920" />
   </a>
 </p>
 
