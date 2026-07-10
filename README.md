@@ -294,7 +294,13 @@ cd Timeline4Things && npm install && npm run dev
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Fasuiker/Timeline4Things&type=Date)](https://star-history.com/#Fasuiker/Timeline4Things&Date)
+<a href="https://www.star-history.com/?repos=Fasuiker%2FTimeline4Things&type=timeline&logscale=&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Fasuiker/Timeline4Things&type=timeline&theme=dark&logscale&legend=bottom-right&sealed_token=TzXZCkmOF7WQbHDj85TmLclCR5Dd3BkavNHbNZ6rvi7VbI6Kd6i2sJGXKhUxBeMGbZ__Kg8Yvqb8dfITeHnVWs-i80xZztCBfcsoWxHG_Pd6H2rtZI3h0Q" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Fasuiker/Timeline4Things&type=timeline&logscale&legend=bottom-right&sealed_token=TzXZCkmOF7WQbHDj85TmLclCR5Dd3BkavNHbNZ6rvi7VbI6Kd6i2sJGXKhUxBeMGbZ__Kg8Yvqb8dfITeHnVWs-i80xZztCBfcsoWxHG_Pd6H2rtZI3h0Q" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Fasuiker/Timeline4Things&type=timeline&logscale&legend=bottom-right&sealed_token=TzXZCkmOF7WQbHDj85TmLclCR5Dd3BkavNHbNZ6rvi7VbI6Kd6i2sJGXKhUxBeMGbZ__Kg8Yvqb8dfITeHnVWs-i80xZztCBfcsoWxHG_Pd6H2rtZI3h0Q" />
+ </picture>
+</a>
 
 ---
 
