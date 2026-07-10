@@ -3,6 +3,7 @@ import { DividerDetailsPanel } from '@/components/DividerDetailsPanel'
 import { EventDetailsPanel } from '@/components/EventDetailsPanel'
 import { FilterBar } from '@/components/FilterBar'
 import { MiniOverview } from '@/components/MiniOverview'
+import { NotesPanel } from '@/components/NotesPanel'
 import { TimelineCanvas } from '@/components/TimelineCanvas'
 import { TimelineLegend } from '@/components/TimelineLegend'
 import { TimelineToolbar } from '@/components/TimelineToolbar'
@@ -11,6 +12,7 @@ import { applyDisplayScale } from '@/utils/uiPreferences'
 
 function useKeyboardShortcuts() {
   const openPanel = useTimelineStore((s) => s.openPanel)
+  const openNotesPanel = useTimelineStore((s) => s.openNotesPanel)
   const closePanel = useTimelineStore((s) => s.closePanel)
   const panelOpen = useTimelineStore((s) => s.panelOpen)
   const panelKind = useTimelineStore((s) => s.panelKind)
@@ -18,6 +20,7 @@ function useKeyboardShortcuts() {
   const deleteEvent = useTimelineStore((s) => s.deleteEvent)
   const saveDraft = useTimelineStore((s) => s.saveDraft)
   const saveDivider = useTimelineStore((s) => s.saveDivider)
+  const saveNote = useTimelineStore((s) => s.saveNote)
   const zoom = useTimelineStore((s) => s.zoom)
 
   useEffect(() => {
@@ -28,6 +31,7 @@ function useKeyboardShortcuts() {
         if ((e.metaKey || e.ctrlKey) && e.key === 's') {
           e.preventDefault()
           if (panelKind === 'divider') saveDivider()
+          else if (panelKind === 'notes') saveNote()
           else saveDraft()
         }
         return
@@ -37,6 +41,10 @@ function useKeyboardShortcuts() {
         case 'n':
         case 'N':
           openPanel(undefined, 'point')
+          break
+        case 'm':
+        case 'M':
+          openNotesPanel()
           break
         case 'Escape':
           closePanel()
@@ -57,6 +65,7 @@ function useKeyboardShortcuts() {
             e.preventDefault()
             if (panelOpen) {
               if (panelKind === 'divider') saveDivider()
+              else if (panelKind === 'notes') saveNote()
               else saveDraft()
             }
           }
@@ -66,7 +75,19 @@ function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [openPanel, closePanel, panelOpen, panelKind, selectedEventId, deleteEvent, saveDraft, saveDivider, zoom])
+  }, [
+    openPanel,
+    openNotesPanel,
+    closePanel,
+    panelOpen,
+    panelKind,
+    selectedEventId,
+    deleteEvent,
+    saveDraft,
+    saveDivider,
+    saveNote,
+    zoom,
+  ])
 }
 
 export default function App() {
@@ -100,6 +121,7 @@ export default function App() {
 
       <EventDetailsPanel />
       <DividerDetailsPanel />
+      <NotesPanel />
     </div>
   )
 }

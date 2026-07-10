@@ -40,11 +40,20 @@ export interface TimelineDivider {
   color?: string
 }
 
+export interface TimelineNote {
+  id: string
+  date: string
+  title: string
+  content: string
+  updatedAt: string
+}
+
 export interface TimelineData {
   version: number
   events: TimelineEvent[]
   categories: Category[]
   dividers?: TimelineDivider[]
+  notes?: TimelineNote[]
 }
 
 export interface TimelineFilters {

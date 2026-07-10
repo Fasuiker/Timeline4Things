@@ -10,6 +10,7 @@ import type {
   TimelineDivider,
   TimelineEvent,
   TimelineFilters,
+  TimelineNote,
   TimeScale,
   ViewMode,
 } from '@/types/timeline'
@@ -35,6 +36,19 @@ function normalizeDividers(dividers: TimelineDivider[]): TimelineDivider[] {
   })
 }
 
+function normalizeNotes(notes: TimelineNote[] | undefined): TimelineNote[] {
+  if (!Array.isArray(notes)) return []
+  return notes
+    .filter((n) => n && typeof n.id === 'string')
+    .map((n) => ({
+      id: n.id.startsWith('note_') ? n.id : generateId('note'),
+      date: n.date || new Date().toISOString().slice(0, 10),
+      title: n.title || '无标题笔记',
+      content: n.content ?? '',
+      updatedAt: n.updatedAt || new Date().toISOString(),
+    }))
+}
+
 function initState() {
   const stored = loadFromStorage()
   if (stored && Array.isArray(stored.events)) {
@@ -44,6 +58,7 @@ function initState() {
       ),
       categories: stored.categories?.length > 0 ? stored.categories : defaultCategories,
       dividers: normalizeDividers(stored.dividers ?? createSampleDividers()),
+      notes: normalizeNotes(stored.notes),
       hydrated: true,
     }
   }
@@ -51,18 +66,21 @@ function initState() {
     events: createSampleEvents(),
     categories: defaultCategories,
     dividers: createSampleDividers(),
+    notes: [] as TimelineNote[],
     hydrated: false,
   }
 }
 
-type PanelKind = 'event' | 'divider'
+type PanelKind = 'event' | 'divider' | 'notes'
 
 interface TimelineState {
   events: TimelineEvent[]
   categories: Category[]
   dividers: TimelineDivider[]
+  notes: TimelineNote[]
   selectedEventId: string | null
   selectedDividerId: string | null
+  selectedNoteId: string | null
   timeScale: TimeScale
   viewMode: ViewMode
   searchQuery: string
@@ -71,6 +89,7 @@ interface TimelineState {
   panelKind: PanelKind
   draftEvent: TimelineEvent | null
   draftDivider: TimelineDivider | null
+  draftNote: TimelineNote | null
   viewportStart: Date
   viewportEnd: Date
   displayScale: number
@@ -88,13 +107,17 @@ interface TimelineState {
   selectDivider: (id: string | null) => void
   openPanel: (event?: TimelineEvent, defaultType?: EventType) => void
   openDividerPanel: (divider?: TimelineDivider) => void
+  openNotesPanel: (note?: TimelineNote) => void
   closePanel: () => void
   setDraftEvent: (event: TimelineEvent) => void
   setDraftDivider: (divider: TimelineDivider) => void
+  setDraftNote: (note: TimelineNote) => void
   saveDraft: () => void
   saveDivider: () => void
+  saveNote: () => void
   deleteEvent: (id: string) => void
   deleteDivider: (id: string) => void
+  deleteNote: (id: string) => void
   moveEvent: (id: string, start: Date, end: Date) => void
   moveDivider: (id: string, date: Date) => void
   setViewport: (start: Date, end: Date) => void
@@ -119,8 +142,10 @@ export const useTimelineStore = create<TimelineState>()(
     events: initial.events,
     categories: initial.categories,
     dividers: initial.dividers,
+    notes: initial.notes,
     selectedEventId: null,
     selectedDividerId: null,
+    selectedNoteId: null,
     timeScale: 'month',
     viewMode: 'compact',
     searchQuery: '',
@@ -129,6 +154,7 @@ export const useTimelineStore = create<TimelineState>()(
     panelKind: 'event',
     draftEvent: null,
     draftDivider: null,
+    draftNote: null,
     viewportStart: initialWindow.start,
     viewportEnd: initialWindow.end,
     displayScale: initialUi.displayScale,
@@ -143,14 +169,15 @@ export const useTimelineStore = create<TimelineState>()(
           events: state.events,
           categories: state.categories,
           dividers: state.dividers,
+          notes: state.notes,
         })
         return
       }
       const stored = await loadFromStorageAsync()
       if (!stored) {
         set({ hydrated: true })
-        const { events, categories, dividers } = get()
-        saveToStorage({ version: 1, events, categories, dividers })
+        const { events, categories, dividers, notes } = get()
+        saveToStorage({ version: 1, events, categories, dividers, notes })
         return
       }
       set({
@@ -159,6 +186,7 @@ export const useTimelineStore = create<TimelineState>()(
         ),
         categories: stored.categories?.length > 0 ? stored.categories : defaultCategories,
         dividers: normalizeDividers(stored.dividers ?? createSampleDividers()),
+        notes: normalizeNotes(stored.notes),
         hydrated: true,
       })
     },
@@ -221,8 +249,10 @@ export const useTimelineStore = create<TimelineState>()(
           panelKind: 'event',
           draftEvent: { ...event },
           draftDivider: null,
+          draftNote: null,
           selectedEventId: event.id,
           selectedDividerId: null,
+          selectedNoteId: null,
         })
       } else {
         const today = new Date().toISOString().slice(0, 10)
@@ -243,8 +273,10 @@ export const useTimelineStore = create<TimelineState>()(
           panelKind: 'event',
           draftEvent: newEvent,
           draftDivider: null,
+          draftNote: null,
           selectedEventId: null,
           selectedDividerId: null,
+          selectedNoteId: null,
         })
       }
     },
@@ -256,8 +288,10 @@ export const useTimelineStore = create<TimelineState>()(
           panelKind: 'divider',
           draftDivider: { ...divider },
           draftEvent: null,
+          draftNote: null,
           selectedDividerId: divider.id,
           selectedEventId: null,
+          selectedNoteId: null,
         })
       } else {
         const today = new Date().toISOString().slice(0, 10)
@@ -271,8 +305,43 @@ export const useTimelineStore = create<TimelineState>()(
             color: '#dc2626',
           },
           draftEvent: null,
+          draftNote: null,
           selectedDividerId: null,
           selectedEventId: null,
+          selectedNoteId: null,
+        })
+      }
+    },
+
+    openNotesPanel: (note) => {
+      if (note) {
+        set({
+          panelOpen: true,
+          panelKind: 'notes',
+          draftNote: { ...note },
+          draftEvent: null,
+          draftDivider: null,
+          selectedNoteId: note.id,
+          selectedEventId: null,
+          selectedDividerId: null,
+        })
+      } else {
+        const today = new Date().toISOString().slice(0, 10)
+        set({
+          panelOpen: true,
+          panelKind: 'notes',
+          draftNote: {
+            id: generateId('note'),
+            date: today,
+            title: '',
+            content: '',
+            updatedAt: new Date().toISOString(),
+          },
+          draftEvent: null,
+          draftDivider: null,
+          selectedNoteId: null,
+          selectedEventId: null,
+          selectedDividerId: null,
         })
       }
     },
@@ -282,10 +351,12 @@ export const useTimelineStore = create<TimelineState>()(
         panelOpen: false,
         draftEvent: null,
         draftDivider: null,
+        draftNote: null,
       }),
 
     setDraftEvent: (event) => set({ draftEvent: event }),
     setDraftDivider: (divider) => set({ draftDivider: divider }),
+    setDraftNote: (note) => set({ draftNote: note }),
 
     saveDraft: () => {
       const { draftEvent, events } = get()
@@ -321,6 +392,32 @@ export const useTimelineStore = create<TimelineState>()(
       }
     },
 
+    saveNote: () => {
+      const { draftNote, notes } = get()
+      if (!draftNote) return
+      const title = draftNote.title.trim() || '无标题笔记'
+      const saved: TimelineNote = {
+        ...draftNote,
+        title,
+        content: draftNote.content ?? '',
+        updatedAt: new Date().toISOString(),
+      }
+      const exists = notes.some((n) => n.id === saved.id)
+      if (exists) {
+        set({
+          notes: notes.map((n) => (n.id === saved.id ? saved : n)),
+          draftNote: saved,
+          selectedNoteId: saved.id,
+        })
+      } else {
+        set({
+          notes: [...notes, saved],
+          draftNote: saved,
+          selectedNoteId: saved.id,
+        })
+      }
+    },
+
     deleteEvent: (id) => {
       set((s) => ({
         events: s.events.filter((e) => e.id !== id),
@@ -338,6 +435,26 @@ export const useTimelineStore = create<TimelineState>()(
         draftDivider:
           s.panelKind === 'divider' && s.selectedDividerId === id ? null : s.draftDivider,
       }))
+    },
+
+    deleteNote: (id) => {
+      set((s) => {
+        const nextNotes = s.notes.filter((n) => n.id !== id)
+        const deletingCurrent = s.draftNote?.id === id
+        return {
+          notes: nextNotes,
+          selectedNoteId: s.selectedNoteId === id ? null : s.selectedNoteId,
+          draftNote: deletingCurrent
+            ? {
+                id: generateId('note'),
+                date: new Date().toISOString().slice(0, 10),
+                title: '',
+                content: '',
+                updatedAt: new Date().toISOString(),
+              }
+            : s.draftNote,
+        }
+      })
     },
 
     moveEvent: (id, start, end) => {
@@ -431,8 +548,8 @@ export const useTimelineStore = create<TimelineState>()(
     },
 
     exportData: () => {
-      const { events, categories, dividers } = get()
-      return exportToJson(events, categories, dividers)
+      const { events, categories, dividers, notes } = get()
+      return exportToJson(events, categories, dividers, notes)
     },
 
     importData: (json) => {
@@ -441,11 +558,14 @@ export const useTimelineStore = create<TimelineState>()(
         events: data.events,
         categories: data.categories.length > 0 ? data.categories : defaultCategories,
         dividers: normalizeDividers(data.dividers ?? []),
+        notes: normalizeNotes(data.notes),
         selectedEventId: null,
         selectedDividerId: null,
+        selectedNoteId: null,
         panelOpen: false,
         draftEvent: null,
         draftDivider: null,
+        draftNote: null,
       })
     },
 
@@ -463,7 +583,12 @@ export const useTimelineStore = create<TimelineState>()(
 )
 
 useTimelineStore.subscribe(
-  (s) => ({ events: s.events, categories: s.categories, dividers: s.dividers }),
+  (s) => ({
+    events: s.events,
+    categories: s.categories,
+    dividers: s.dividers,
+    notes: s.notes,
+  }),
   (data) => saveToStorage({ version: 1, ...data }),
   { equalityFn: shallow },
 )

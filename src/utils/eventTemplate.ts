@@ -7,7 +7,7 @@ const importanceStyles: Record<Importance, { bg: string; border: string; text: s
   low: { bg: '#f8fafc', border: '#94a3b8', text: '#475569' },
 }
 
-function escapeHtml(text: string) {
+export function escapeHtml(text: string) {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

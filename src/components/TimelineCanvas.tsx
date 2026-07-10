@@ -4,16 +4,67 @@ import { Timeline } from 'vis-timeline/standalone'
 import type { TimelineOptions, Timeline as VisTimeline } from 'vis-timeline'
 import { useFilteredEvents } from '@/hooks/useFilteredEvents'
 import { useTimelineStore } from '@/store/timelineStore'
-import type { Category, TimelineDivider, TimelineEvent } from '@/types/timeline'
+import type { Category, TimelineDivider, TimelineEvent, TimelineNote } from '@/types/timeline'
 import { parseDate, panWindowByWheel } from '@/utils/dateScale'
+import { addMonths, endOfMonth, startOfMonth } from 'date-fns'
 import {
   buildGroupLabel,
   buildPointContent,
   buildPointStyle,
   buildRangeContent,
   buildRangeStyle,
+  escapeHtml,
   formatEventDate,
 } from '@/utils/eventTemplate'
+
+function isNoteItemId(id: string) {
+  return id.startsWith('note_')
+}
+
+function isMonthBandId(id: string) {
+  return id.startsWith('monthband_')
+}
+
+function buildMonthBands(rangeStart: Date, rangeEnd: Date) {
+  const start = startOfMonth(addMonths(rangeStart, -1))
+  const end = endOfMonth(addMonths(rangeEnd, 1))
+  const bands: Record<string, unknown>[] = []
+  let cursor = start
+  let index = 0
+
+  while (cursor.getTime() <= end.getTime()) {
+    const monthEnd = endOfMonth(cursor)
+    const y = cursor.getFullYear()
+    const m = cursor.getMonth()
+    bands.push({
+      id: `monthband_${y}_${m}`,
+      start: cursor,
+      end: new Date(monthEnd.getTime() + 1),
+      type: 'background',
+      className: `tl-month-band ${index % 2 === 0 ? 'tl-month-band--a' : 'tl-month-band--b'}`,
+      editable: false,
+      selectable: false,
+    })
+    cursor = addMonths(startOfMonth(cursor), 1)
+    index += 1
+  }
+
+  return bands
+}
+
+function noteToVisItem(note: TimelineNote) {
+  const title = note.title || '笔记'
+  const preview = (note.content || '').replace(/\s+/g, ' ').trim().slice(0, 80)
+  return {
+    id: note.id,
+    content: `<span class="tl-note-label">${escapeHtml(title)}</span>`,
+    className: 'tl-note-event',
+    title: [title, note.date, preview].filter(Boolean).join('\n'),
+    start: parseDate(note.date),
+    type: 'point' as const,
+    editable: false,
+  }
+}
 
 function eventToVisItem(event: TimelineEvent, laneMode: boolean, categories: Category[]) {
   const tooltip = [
@@ -126,8 +177,16 @@ function getTimelineOptions(scale: string, height = 400): Partial<TimelineOption
     },
     selectable: true,
     multiselect: false,
+    // Stack overlapping items vertically. Order is stable by start time.
     stack: true,
-    margin: { axis: 8, item: { horizontal: 12, vertical: 14 } },
+    order: (a, b) => {
+      const aStart = new Date(a.start as string | Date).getTime()
+      const bStart = new Date(b.start as string | Date).getTime()
+      if (aStart !== bStart) return aStart - bStart
+      return String(a.id).localeCompare(String(b.id))
+    },
+    // Extra vertical gap so nearby point labels are less likely to collide.
+    margin: { axis: 8, item: { horizontal: 12, vertical: 22 } },
     orientation: 'top',
     zoomKey: 'ctrlKey',
     horizontalScroll: true,
@@ -144,31 +203,46 @@ function getTimelineOptions(scale: string, height = 400): Partial<TimelineOption
       return {
         ...base,
         timeAxis: { scale: 'hour', step: 3 },
-        format: { minorLabels: { hour: 'HH:mm' }, majorLabels: { day: 'ddd D MMM' } },
+        format: {
+          minorLabels: { hour: 'HH:mm' },
+          majorLabels: { day: 'M月D日' },
+        },
       }
     case 'week':
       return {
         ...base,
         timeAxis: { scale: 'day', step: 1 },
-        format: { minorLabels: { day: 'D' }, majorLabels: { weekday: 'ddd MMM D' } },
+        format: {
+          minorLabels: { day: 'D' },
+          majorLabels: { weekday: 'M月D日' },
+        },
       }
     case 'month':
       return {
         ...base,
         timeAxis: { scale: 'day', step: 1 },
-        format: { minorLabels: { day: 'D' }, majorLabels: { month: 'MMMM YYYY' } },
+        format: {
+          minorLabels: { day: 'D' },
+          majorLabels: { month: 'YYYY年 M月' },
+        },
       }
     case 'quarter':
       return {
         ...base,
         timeAxis: { scale: 'month', step: 1 },
-        format: { minorLabels: { month: 'MMM' }, majorLabels: { month: 'YYYY' } },
+        format: {
+          minorLabels: { month: 'M月' },
+          majorLabels: { month: 'YYYY年' },
+        },
       }
     case 'year':
       return {
         ...base,
         timeAxis: { scale: 'month', step: 1 },
-        format: { minorLabels: { month: 'MMM' }, majorLabels: { year: 'YYYY' } },
+        format: {
+          minorLabels: { month: 'M月' },
+          majorLabels: { year: 'YYYY年' },
+        },
       }
     default:
       return base
@@ -185,6 +259,7 @@ export function TimelineCanvas() {
   const viewportSourceRef = useRef<'timeline' | 'external'>('external')
 
   const events = useFilteredEvents()
+  const notes = useTimelineStore((s) => s.notes)
   const dividers = useTimelineStore((s) => s.dividers)
   const viewMode = useTimelineStore((s) => s.viewMode)
   const timeScale = useTimelineStore((s) => s.timeScale)
@@ -196,6 +271,7 @@ export function TimelineCanvas() {
   const selectEvent = useTimelineStore((s) => s.selectEvent)
   const openPanel = useTimelineStore((s) => s.openPanel)
   const openDividerPanel = useTimelineStore((s) => s.openDividerPanel)
+  const openNotesPanel = useTimelineStore((s) => s.openNotesPanel)
   const moveEvent = useTimelineStore((s) => s.moveEvent)
   const moveDivider = useTimelineStore((s) => s.moveDivider)
 
@@ -204,13 +280,35 @@ export function TimelineCanvas() {
   const handleSelect = useCallback(
     (props: { items: (string | number)[] }) => {
       const id = props.items[0]?.toString() ?? null
-      selectEvent(id)
-      if (id) {
-        const event = useTimelineStore.getState().events.find((e) => e.id === id)
-        if (event) openPanel(event)
+      if (!id) {
+        selectEvent(null)
+        return
       }
+      if (isNoteItemId(id)) {
+        const note = useTimelineStore.getState().notes.find((n) => n.id === id)
+        if (note) openNotesPanel(note)
+        return
+      }
+      selectEvent(id)
+      const event = useTimelineStore.getState().events.find((e) => e.id === id)
+      if (event) openPanel(event)
     },
-    [selectEvent, openPanel],
+    [selectEvent, openPanel, openNotesPanel],
+  )
+
+  const handleMove = useCallback(
+    (item: Record<string, unknown>, callback: (item: Record<string, unknown> | null) => void) => {
+      const id = String(item.id)
+      if (isNoteItemId(id) || isMonthBandId(id)) {
+        callback(null)
+        return
+      }
+      const start = item.start as Date
+      const end = (item.end ?? item.start) as Date
+      moveEvent(id, start, end)
+      callback(item)
+    },
+    [moveEvent],
   )
 
   const handleRangeChange = useCallback(
@@ -221,17 +319,6 @@ export function TimelineCanvas() {
       useTimelineStore.getState().setViewport(props.start, props.end)
     },
     [],
-  )
-
-  const handleMove = useCallback(
-    (item: Record<string, unknown>, callback: (item: Record<string, unknown> | null) => void) => {
-      const id = String(item.id)
-      const start = item.start as Date
-      const end = (item.end ?? item.start) as Date
-      moveEvent(id, start, end)
-      callback(item)
-    },
-    [moveEvent],
   )
 
   const handleTimeChange = useCallback(
@@ -252,7 +339,14 @@ export function TimelineCanvas() {
       ? new DataSet(categories.map((c) => ({ id: c.name, content: buildGroupLabel(c) })))
       : undefined
 
-    const items = new DataSet(events.map((e) => eventToVisItem(e, laneMode, categories)))
+    const monthBands = buildMonthBands(viewportStart, viewportEnd)
+    const items = new DataSet(
+      [
+        ...monthBands,
+        ...events.map((e) => eventToVisItem(e, laneMode, categories)),
+        ...(laneMode ? [] : notes.map((n) => noteToVisItem(n))),
+      ] as Record<string, unknown>[],
+    )
 
     const options: TimelineOptions = {
       ...getTimelineOptions(timeScale, canvasHeight),
@@ -262,8 +356,17 @@ export function TimelineCanvas() {
     }
 
     const timeline = laneMode
-      ? new Timeline(containerRef.current, items, groups!, options)
-      : new Timeline(containerRef.current, items, options)
+      ? new Timeline(
+          containerRef.current,
+          items as unknown as ConstructorParameters<typeof Timeline>[1],
+          groups!,
+          options,
+        )
+      : new Timeline(
+          containerRef.current,
+          items as unknown as ConstructorParameters<typeof Timeline>[1],
+          options,
+        )
 
     timeline.on('select', handleSelect)
     timeline.on('rangechange', handleRangeChange)
@@ -332,17 +435,20 @@ export function TimelineCanvas() {
     const items = itemsRef.current
     if (!timeline || !items) return
 
-    const currentIds = items.getIds()
-    const newIds = events.map((e) => e.id)
-    currentIds.forEach((id: string | number) => {
-      if (!newIds.includes(String(id))) items.remove(id)
+    const monthBands = buildMonthBands(viewportStart, viewportEnd)
+    const eventItems = events.map((e) => eventToVisItem(e, laneMode, categories))
+    const noteItems = laneMode ? [] : notes.map((n) => noteToVisItem(n))
+    const nextItems = [...monthBands, ...eventItems, ...noteItems]
+    const newIds = new Set(nextItems.map((item) => String(item.id)))
+
+    items.getIds().forEach((id: string | number) => {
+      if (!newIds.has(String(id))) items.remove(id)
     })
-    events.forEach((event) => {
-      const visItem = eventToVisItem(event, laneMode, categories)
-      if (items.get(event.id)) items.update(visItem)
+    nextItems.forEach((visItem) => {
+      if (items.get(visItem.id as string)) items.update(visItem)
       else items.add(visItem)
     })
-  }, [events, laneMode, categories])
+  }, [events, notes, laneMode, categories, viewportStart, viewportEnd])
 
   useEffect(() => {
     const timeline = timelineRef.current
@@ -356,6 +462,19 @@ export function TimelineCanvas() {
     if (!timeline) return
     if (viewportSourceRef.current === 'timeline') {
       viewportSourceRef.current = 'external'
+      // Still refresh month bands while user pans.
+      const items = itemsRef.current
+      if (items) {
+        const bands = buildMonthBands(viewportStart, viewportEnd)
+        const keep = new Set(bands.map((b) => String(b.id)))
+        items.getIds().forEach((id: string | number) => {
+          if (isMonthBandId(String(id)) && !keep.has(String(id))) items.remove(id)
+        })
+        bands.forEach((band) => {
+          if (items.get(band.id as string)) items.update(band)
+          else items.add(band)
+        })
+      }
       return
     }
     syncingRef.current = true
@@ -370,12 +489,11 @@ export function TimelineCanvas() {
     if (!wrap) return
 
     const onWheel = (e: WheelEvent) => {
+      // Ctrl+wheel is reserved for zoom (vis-timeline zoomKey).
       if (e.ctrlKey) return
 
-      const target = e.target as HTMLElement
-      if (target.closest('.vis-timeline')) return
-
       e.preventDefault()
+      e.stopPropagation()
 
       const { viewportStart, viewportEnd, setViewport } = useTimelineStore.getState()
       const next = panWindowByWheel(viewportStart, viewportEnd, e)
@@ -383,8 +501,8 @@ export function TimelineCanvas() {
       setViewport(next.start, next.end)
     }
 
-    wrap.addEventListener('wheel', onWheel, { passive: false })
-    return () => wrap.removeEventListener('wheel', onWheel)
+    wrap.addEventListener('wheel', onWheel, { passive: false, capture: true })
+    return () => wrap.removeEventListener('wheel', onWheel, { capture: true } as EventListenerOptions)
   }, [])
 
   useEffect(() => {

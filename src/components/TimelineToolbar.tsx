@@ -8,6 +8,7 @@ import {
   LayoutList,
   Maximize2,
   Minus,
+  NotebookPen,
   Search,
   SeparatorVertical,
   Upload,
@@ -43,6 +44,7 @@ export function TimelineToolbar() {
   const adjustDisplayScale = useTimelineStore((s) => s.adjustDisplayScale)
   const openPanel = useTimelineStore((s) => s.openPanel)
   const openDividerPanel = useTimelineStore((s) => s.openDividerPanel)
+  const openNotesPanel = useTimelineStore((s) => s.openNotesPanel)
   const exportData = useTimelineStore((s) => s.exportData)
   const importData = useTimelineStore((s) => s.importData)
 
@@ -168,6 +170,9 @@ export function TimelineToolbar() {
           </Button>
           <Button variant="outline" size="sm" onClick={() => openDividerPanel()} className="h-8 gap-1 border-slate-200/80 bg-white/60 text-xs">
             <SeparatorVertical className="h-3 w-3" /> 线
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => openNotesPanel()} className="h-8 gap-1 border-slate-200/80 bg-white/60 text-xs">
+            <NotebookPen className="h-3 w-3" /> 笔记
           </Button>
         </div>
 
