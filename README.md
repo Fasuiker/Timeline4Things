@@ -291,7 +291,6 @@ cd Timeline4Things && npm install && npm run dev
 ```
 
 ---
-
 ## Star History
 
 <a href="https://www.star-history.com/?repos=Fasuiker%2FTimeline4Things&type=timeline&logscale=&legend=bottom-right">
