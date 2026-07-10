@@ -91,6 +91,8 @@ function syncDividers(
 }
 
 function applyDividerStyles(container: HTMLElement, dividers: TimelineDivider[]) {
+  const scale =
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tl-scale')) || 1.5
   container.querySelectorAll('.vis-custom-time').forEach((el) => {
     const htmlEl = el as HTMLElement
     const id = htmlEl.className
@@ -104,7 +106,7 @@ function applyDividerStyles(container: HTMLElement, dividers: TimelineDivider[])
     if (marker) {
       marker.style.backgroundColor = color
       marker.style.color = '#fff'
-      marker.style.fontSize = '11px'
+      marker.style.fontSize = `${11 * scale}px`
       marker.style.fontWeight = '600'
       marker.style.borderRadius = '4px'
       marker.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)'
@@ -112,9 +114,9 @@ function applyDividerStyles(container: HTMLElement, dividers: TimelineDivider[])
   })
 }
 
-function getTimelineOptions(scale: string): Partial<TimelineOptions> {
+function getTimelineOptions(scale: string, height = 400): Partial<TimelineOptions> {
   const base: Partial<TimelineOptions> = {
-    height: 600,
+    height,
     editable: {
       add: false,
       updateTime: true,
@@ -190,6 +192,7 @@ export function TimelineCanvas() {
   const viewportEnd = useTimelineStore((s) => s.viewportEnd)
   const categories = useTimelineStore((s) => s.categories)
   const selectedEventId = useTimelineStore((s) => s.selectedEventId)
+  const displayScale = useTimelineStore((s) => s.displayScale)
   const selectEvent = useTimelineStore((s) => s.selectEvent)
   const openPanel = useTimelineStore((s) => s.openPanel)
   const openDividerPanel = useTimelineStore((s) => s.openDividerPanel)
@@ -241,7 +244,9 @@ export function TimelineCanvas() {
   )
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current || !wrapRef.current) return
+
+    const canvasHeight = Math.max(220, wrapRef.current.clientHeight)
 
     const groups = laneMode
       ? new DataSet(categories.map((c) => ({ id: c.name, content: buildGroupLabel(c) })))
@@ -250,7 +255,7 @@ export function TimelineCanvas() {
     const items = new DataSet(events.map((e) => eventToVisItem(e, laneMode, categories)))
 
     const options: TimelineOptions = {
-      ...getTimelineOptions(timeScale),
+      ...getTimelineOptions(timeScale, canvasHeight),
       start: viewportStart,
       end: viewportEnd,
       onMove: handleMove as unknown as TimelineOptions['onMove'],
@@ -306,6 +311,23 @@ export function TimelineCanvas() {
   }, [laneMode, timeScale])
 
   useEffect(() => {
+    const wrap = wrapRef.current
+    const timeline = timelineRef.current
+    if (!wrap || !timeline) return
+
+    const applyHeight = () => {
+      const height = Math.max(220, wrap.clientHeight)
+      timeline.setOptions({ height })
+      timeline.redraw()
+    }
+
+    applyHeight()
+    const observer = new ResizeObserver(applyHeight)
+    observer.observe(wrap)
+    return () => observer.disconnect()
+  }, [laneMode, timeScale])
+
+  useEffect(() => {
     const timeline = timelineRef.current
     const items = itemsRef.current
     if (!timeline || !items) return
@@ -326,7 +348,8 @@ export function TimelineCanvas() {
     const timeline = timelineRef.current
     if (!timeline) return
     syncDividers(timeline, dividers, dividerIdsRef.current, containerRef.current)
-  }, [dividers])
+    timeline.redraw()
+  }, [dividers, displayScale])
 
   useEffect(() => {
     const timeline = timelineRef.current
@@ -372,7 +395,7 @@ export function TimelineCanvas() {
   }, [selectedEventId])
 
   return (
-    <div ref={wrapRef} className="timeline-canvas-wrap relative h-[25rem] w-full">
+    <div ref={wrapRef} className="timeline-canvas-wrap w-full min-h-0 flex-1">
       <div ref={containerRef} className="timeline-canvas absolute inset-0" />
     </div>
   )

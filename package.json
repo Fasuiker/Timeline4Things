@@ -1,15 +1,23 @@
 {
   "name": "timeline4things",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "A lightweight timeline annotation tool for key moments and temporal events",
+  "author": "Fasuiker",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:pages": "GITHUB_PAGES=true npm run build",
     "screenshot": "npm run build:pages && node scripts/capture-screenshot.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"ELECTRON=true vite\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "electron:icon": "python3 scripts/generate-icon.py",
+    "electron:build": "npm run electron:icon && npm run electron:build:web && electron-builder --win portable && node scripts/embed-exe-icon.mjs",
+    "electron:build:web": "cross-env ELECTRON=true npm run build",
+    "electron:build:win-all": "npm run electron:build:web && electron-builder --win"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.19",
@@ -35,10 +43,57 @@
     "@types/react-dom": "^19.2.3",
     "@types/vis": "^4.21.27",
     "@vitejs/plugin-react": "^4.7.0",
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "^35.7.5",
+    "electron-builder": "^24.13.3",
     "oxlint": "^1.71.0",
     "playwright": "^1.61.1",
+    "resedit": "^3.0.2",
     "tailwindcss": "^4.3.2",
     "typescript": "~6.0.2",
-    "vite": "^6.4.3"
+    "vite": "^6.4.3",
+    "wait-on": "^8.0.5"
+  },
+  "build": {
+    "appId": "com.timeline4things.app",
+    "productName": "Timeline4Things",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "Timeline4Things-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Timeline4Things"
+    }
   }
 }

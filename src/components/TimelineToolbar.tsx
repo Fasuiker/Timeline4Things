@@ -1,4 +1,5 @@
 import {
+  ALargeSmall,
   Calendar,
   Circle,
   Cloud,
@@ -38,6 +39,8 @@ export function TimelineToolbar() {
   const goToToday = useTimelineStore((s) => s.goToToday)
   const fitAll = useTimelineStore((s) => s.fitAll)
   const zoom = useTimelineStore((s) => s.zoom)
+  const displayScale = useTimelineStore((s) => s.displayScale)
+  const adjustDisplayScale = useTimelineStore((s) => s.adjustDisplayScale)
   const openPanel = useTimelineStore((s) => s.openPanel)
   const openDividerPanel = useTimelineStore((s) => s.openDividerPanel)
   const exportData = useTimelineStore((s) => s.exportData)
@@ -123,6 +126,34 @@ export function TimelineToolbar() {
           </Tooltip>
           <Tooltip content="缩小">
             <Button variant="ghost" size="icon" onClick={() => zoom(1.33)}><ZoomOut className="h-4 w-4" /></Button>
+          </Tooltip>
+        </div>
+
+        <div className="toolbar-divider" />
+
+        <div className="flex items-center gap-1">
+          <Tooltip content="界面缩小">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => adjustDisplayScale(-0.25)}
+              disabled={displayScale <= 1}
+            >
+              <ALargeSmall className="h-4 w-4 scale-90" />
+            </Button>
+          </Tooltip>
+          <span className="min-w-[3rem] text-center text-[11px] font-semibold tabular-nums text-slate-500">
+            {Math.round(displayScale * 100)}%
+          </span>
+          <Tooltip content="界面放大">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => adjustDisplayScale(0.25)}
+              disabled={displayScale >= 2.5}
+            >
+              <ALargeSmall className="h-4 w-4" />
+            </Button>
           </Tooltip>
         </div>
 

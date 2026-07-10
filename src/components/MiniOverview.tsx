@@ -76,11 +76,11 @@ export function MiniOverview() {
   const viewportLabel = `${format(viewportStart, 'yyyy年M月d日', { locale: zhCN })} – ${format(viewportEnd, 'yyyy年M月d日', { locale: zhCN })}`
 
   return (
-    <div className="border-t border-slate-200/60 bg-slate-50/50 px-5 py-3">
+    <div className="timeline-mini-overview border-t border-slate-200/60 bg-slate-50/50 px-5 py-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">导航</span>
-        <span className="text-[10px] font-medium text-slate-500">{viewportLabel}</span>
-        <span className="text-[10px] text-slate-400">拖动定位</span>
+        <span className="mini-overview-label font-semibold uppercase tracking-wider text-slate-400">导航</span>
+        <span className="mini-overview-label font-medium text-slate-500">{viewportLabel}</span>
+        <span className="mini-overview-label text-slate-400">拖动定位</span>
       </div>
 
       {yearBands.length > 0 && (
@@ -88,7 +88,7 @@ export function MiniOverview() {
           {yearBands.map((y) => (
             <span
               key={y.time}
-              className="absolute -translate-x-1/2 text-[10px] font-semibold text-slate-500"
+              className="mini-overview-year absolute -translate-x-1/2 font-semibold text-slate-500"
               style={{ left: `${toPercent(y.time)}%` }}
             >
               {y.label}
@@ -158,7 +158,7 @@ export function MiniOverview() {
           i % labelStep === 0 ? (
             <span
               key={tick.time}
-              className="absolute -translate-x-1/2 text-[9px] text-slate-400"
+              className="mini-overview-tick absolute -translate-x-1/2 text-slate-400"
               style={{ left: `${toPercent(tick.time)}%` }}
             >
               {tick.label}

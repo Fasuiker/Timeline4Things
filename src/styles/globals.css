@@ -15,7 +15,7 @@
 * { box-sizing: border-box; }
 
 html {
-  font-size: 150%;
+  font-size: calc(100% * var(--tl-scale, 1.5));
 }
 
 html, body, #root { height: 100%; margin: 0; }
@@ -68,13 +68,16 @@ body {
   justify-content: flex-start;
   min-height: 0;
   padding: 0;
-  overflow: auto;
+  overflow: hidden;
 }
 
-/* Full-width timeline stage, directly under toolbar */
+/* Full-width timeline stage, fills remaining window height */
 .timeline-stage {
   width: 100%;
-  flex-shrink: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(20px);
   border-top: 1px solid rgba(255, 255, 255, 0.9);
@@ -85,6 +88,9 @@ body {
 }
 
 .timeline-canvas-wrap {
+  flex: 1;
+  min-height: 12rem;
+  position: relative;
   background:
     linear-gradient(180deg, rgba(248, 250, 252, 0.6) 0%, rgba(255, 255, 255, 0.3) 100%),
     linear-gradient(#e8ecf4 1px, transparent 1px),
@@ -92,7 +98,21 @@ body {
   background-size: auto, 32px 32px, 32px 32px;
 }
 
+.timeline-mini-overview .mini-overview-label {
+  font-size: calc(10px * var(--tl-scale, 1.5));
+}
+.timeline-mini-overview .mini-overview-year {
+  font-size: calc(10px * var(--tl-scale, 1.5));
+}
+.timeline-mini-overview .mini-overview-tick {
+  font-size: calc(9px * var(--tl-scale, 1.5));
+}
+.timeline-mini-overview .relative.h-9 {
+  height: calc(36px * var(--tl-scale, 1.5));
+}
+
 /* ── Floating panel ── */
+/* Avoid transform/backdrop-filter here: they break IME caret position in Electron/Chromium. */
 .floating-panel-root {
   position: fixed;
   inset: 0;
@@ -108,28 +128,30 @@ body {
   position: absolute;
   inset: 0;
   border: none;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.5);
   cursor: pointer;
 }
 
 .floating-panel-card {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: 480px;
   max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(24px);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #ffffff;
   box-shadow:
     0 0 0 1px rgba(15, 23, 42, 0.06),
     0 24px 64px -12px rgba(15, 23, 42, 0.25),
     0 0 80px -20px rgba(59, 130, 246, 0.15);
-  animation: slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  overflow: hidden;
+  animation: fade-in 0.18s ease;
+  overflow: visible;
+}
+
+.floating-panel-card--wide {
+  max-width: 560px;
 }
 
 .floating-panel-card--red {
@@ -181,6 +203,8 @@ body {
 
 .floating-panel-body {
   flex: 1;
+  min-height: 0;
+  overflow-x: visible;
   overflow-y: auto;
   padding: 16px 20px;
   display: flex;
@@ -221,6 +245,13 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+.form-row--stack {
+  grid-template-columns: 1fr;
+}
+.form-field input[type="date"] {
+  min-width: 0;
+  width: 100%;
 }
 .form-select {
   height: 36px;
@@ -408,12 +439,12 @@ body {
 
 .vis-time-axis .vis-text {
   color: #94a3b8 !important;
-  font-size: 11px !important;
+  font-size: calc(11px * var(--tl-scale, 1.5)) !important;
   font-weight: 500 !important;
 }
 .vis-time-axis .vis-text.vis-major {
   color: #334155 !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--tl-scale, 1.5)) !important;
   font-weight: 600 !important;
 }
 .vis-time-axis .vis-grid.vis-minor { border-color: #f1f5f9 !important; }
@@ -436,23 +467,24 @@ body {
 
 .vis-custom-time-marker {
   position: absolute;
-  top: 4px;
+  top: calc(4px * var(--tl-scale, 1.5));
   left: 50%;
   transform: translateX(-50%);
-  padding: 2px 8px;
+  padding: calc(2px * var(--tl-scale, 1.5)) calc(8px * var(--tl-scale, 1.5));
   white-space: nowrap;
   pointer-events: none;
   z-index: 6;
   line-height: 1.2;
+  font-size: calc(11px * var(--tl-scale, 1.5));
 }
 
 /* Range bars */
 .vis-item.tl-range-event {
   border-style: solid !important;
-  border-radius: 8px !important;
-  height: 32px !important;
-  line-height: 30px !important;
-  font-size: 12px !important;
+  border-radius: calc(8px * var(--tl-scale, 1.5)) !important;
+  height: calc(32px * var(--tl-scale, 1.5)) !important;
+  line-height: calc(30px * var(--tl-scale, 1.5)) !important;
+  font-size: calc(12px * var(--tl-scale, 1.5)) !important;
   font-weight: 600 !important;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1) !important;
   cursor: grab;
@@ -465,7 +497,7 @@ body {
   box-shadow: 0 0 0 2px #3b82f6, 0 8px 24px rgba(59, 130, 246, 0.25) !important;
 }
 .vis-item.tl-range-event .vis-item-content {
-  padding: 0 12px !important;
+  padding: 0 calc(12px * var(--tl-scale, 1.5)) !important;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -474,9 +506,9 @@ body {
 /* Point dots */
 .vis-item.tl-point-event {
   border-style: solid !important;
-  width: 14px !important;
-  height: 14px !important;
-  min-width: 14px !important;
+  width: calc(14px * var(--tl-scale, 1.5)) !important;
+  height: calc(14px * var(--tl-scale, 1.5)) !important;
+  min-width: calc(14px * var(--tl-scale, 1.5)) !important;
   border-radius: 50% !important;
   padding: 0 !important;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2) !important;
@@ -485,16 +517,16 @@ body {
 }
 .vis-item.tl-point-event .vis-item-content {
   position: absolute !important;
-  left: 20px !important;
-  top: -6px !important;
+  left: calc(20px * var(--tl-scale, 1.5)) !important;
+  top: calc(-6px * var(--tl-scale, 1.5)) !important;
   width: max-content !important;
-  max-width: 180px;
-  padding: 3px 10px !important;
+  max-width: calc(180px * var(--tl-scale, 1.5));
+  padding: calc(3px * var(--tl-scale, 1.5)) calc(10px * var(--tl-scale, 1.5)) !important;
   background: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(8px);
   border: 1px solid #e2e8f0 !important;
-  border-radius: 8px !important;
-  font-size: 11px !important;
+  border-radius: calc(8px * var(--tl-scale, 1.5)) !important;
+  font-size: calc(11px * var(--tl-scale, 1.5)) !important;
   font-weight: 600 !important;
   color: #0f172a !important;
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08) !important;
@@ -512,11 +544,11 @@ body {
 .vis-item.importance-medium.tl-range-event { background-color: #eff6ff !important; border-color: #3b82f6 !important; color: #1e40af !important; }
 .vis-item.importance-low.tl-range-event { background-color: #f8fafc !important; border-color: #94a3b8 !important; color: #475569 !important; }
 
-.tl-lane-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #334155; }
-.tl-lane-dot { width: 8px; height: 8px; border-radius: 50%; }
+.tl-lane-label { display: inline-flex; align-items: center; gap: calc(6px * var(--tl-scale, 1.5)); font-size: calc(12px * var(--tl-scale, 1.5)); font-weight: 600; color: #334155; }
+.tl-lane-dot { width: calc(8px * var(--tl-scale, 1.5)); height: calc(8px * var(--tl-scale, 1.5)); border-radius: 50%; }
 .vis-labelset .vis-label {
   color: #334155 !important;
-  font-size: 12px !important;
+  font-size: calc(12px * var(--tl-scale, 1.5)) !important;
   font-weight: 600 !important;
   border-color: #e2e8f0 !important;
   background: #f8fafc !important;

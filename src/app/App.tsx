@@ -7,6 +7,7 @@ import { TimelineCanvas } from '@/components/TimelineCanvas'
 import { TimelineLegend } from '@/components/TimelineLegend'
 import { TimelineToolbar } from '@/components/TimelineToolbar'
 import { useTimelineStore } from '@/store/timelineStore'
+import { applyDisplayScale } from '@/utils/uiPreferences'
 
 function useKeyboardShortcuts() {
   const openPanel = useTimelineStore((s) => s.openPanel)
@@ -70,6 +71,16 @@ function useKeyboardShortcuts() {
 
 export default function App() {
   useKeyboardShortcuts()
+  const displayScale = useTimelineStore((s) => s.displayScale)
+  const hydrateFromDisk = useTimelineStore((s) => s.hydrateFromDisk)
+
+  useEffect(() => {
+    void hydrateFromDisk()
+  }, [hydrateFromDisk])
+
+  useEffect(() => {
+    applyDisplayScale(displayScale)
+  }, [displayScale])
 
   return (
     <div className="app-shell">

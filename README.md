@@ -110,6 +110,45 @@ npm run build:pages
 
 Pushes to `main` auto-deploy via [GitHub Actions](.github/workflows/deploy-pages.yml) (enable **Settings → Pages → Build and deployment → GitHub Actions**).
 
+### Windows desktop app (Electron)
+
+Package as a local **.exe** — double-click to run, no browser needed. Data still saves in the app via `localStorage`.
+
+**Build on Windows** (recommended for installer + portable):
+
+```bash
+npm install
+npm run electron:build:win-all
+```
+
+**Build from WSL** (portable `.exe` only — no Wine needed):
+
+```bash
+npm install
+npm run electron:build
+```
+
+Copy the portable app to Windows:
+
+```bash
+cp release/Timeline4Things-0.1.0-portable.exe /mnt/c/Users/你的用户名/Desktop/
+```
+
+Then double-click the `.exe` on the desktop. WSL path is also reachable in Explorer as `\\wsl.localhost\<发行版名>\home\produ\projects\Timeline4Things\release\`.
+
+Output in `release/`:
+
+| File | Description |
+|------|-------------|
+| `Timeline4Things-0.1.0-portable.exe` | Portable — **double-click to run**, no install |
+| `Timeline4Things Setup x.x.x.exe` | Installer (Windows native build only) |
+
+**Preview desktop shell during development:**
+
+```bash
+npm run electron:dev
+```
+
 ---
 
 ## Usage guide

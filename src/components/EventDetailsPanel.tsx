@@ -52,6 +52,7 @@ export function EventDetailsPanel() {
       onClose={closePanel}
       title={isNew ? '新建事件' : '编辑事件'}
       subtitle={draftEvent.type === 'point' ? '点事件 · 时间轴圆点标记' : '条事件 · 可拖拽调整时长'}
+      wide
       footer={
         <>
           <Button className="flex-1" onClick={() => { saveDraft(); closePanel() }}>
@@ -101,13 +102,13 @@ export function EventDetailsPanel() {
           <Input type="date" value={draftEvent.date} onChange={(e) => update({ date: e.target.value })} />
         </div>
       ) : (
-        <div className="form-row">
+        <div className="form-row form-row--stack">
           <div className="form-field">
-            <label>开始</label>
+            <label>开始日期</label>
             <Input type="date" value={draftEvent.startDate} onChange={(e) => update({ startDate: e.target.value })} />
           </div>
           <div className="form-field">
-            <label>结束</label>
+            <label>结束日期</label>
             <Input type="date" value={draftEvent.endDate} onChange={(e) => update({ endDate: e.target.value })} />
           </div>
         </div>

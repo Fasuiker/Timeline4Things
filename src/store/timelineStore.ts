@@ -15,7 +15,13 @@ import type {
 } from '@/types/timeline'
 import { getWindowForScale } from '@/utils/dateScale'
 import { filterEvents } from '@/hooks/useFilteredEvents'
-import { exportToJson, importFromJson, loadFromStorage, saveToStorage } from '@/utils/storage'
+import { exportToJson, importFromJson, loadFromStorage, loadFromStorageAsync, saveToStorage } from '@/utils/storage'
+import {
+  applyDisplayScale,
+  clampScale as clampDisplayScale,
+  loadUiPreferences,
+  saveUiPreferences,
+} from '@/utils/uiPreferences'
 
 function generateId(prefix = 'evt') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
@@ -38,12 +44,14 @@ function initState() {
       ),
       categories: stored.categories?.length > 0 ? stored.categories : defaultCategories,
       dividers: normalizeDividers(stored.dividers ?? createSampleDividers()),
+      hydrated: true,
     }
   }
   return {
     events: createSampleEvents(),
     categories: defaultCategories,
     dividers: createSampleDividers(),
+    hydrated: false,
   }
 }
 
@@ -65,7 +73,10 @@ interface TimelineState {
   draftDivider: TimelineDivider | null
   viewportStart: Date
   viewportEnd: Date
+  displayScale: number
+  hydrated: boolean
 
+  hydrateFromDisk: () => Promise<void>
   setTimeScale: (scale: TimeScale) => void
   setViewMode: (mode: ViewMode) => void
   setSearchQuery: (query: string) => void
@@ -90,6 +101,8 @@ interface TimelineState {
   goToToday: () => void
   fitAll: () => void
   zoom: (factor: number) => void
+  setDisplayScale: (scale: number) => void
+  adjustDisplayScale: (delta: number) => void
   exportData: () => string
   importData: (json: string) => void
   getFilteredEvents: () => TimelineEvent[]
@@ -98,6 +111,8 @@ interface TimelineState {
 
 const initial = initState()
 const initialWindow = getWindowForScale('month')
+const initialUi = loadUiPreferences()
+applyDisplayScale(initialUi.displayScale)
 
 export const useTimelineStore = create<TimelineState>()(
   subscribeWithSelector((set, get) => ({
@@ -116,6 +131,37 @@ export const useTimelineStore = create<TimelineState>()(
     draftDivider: null,
     viewportStart: initialWindow.start,
     viewportEnd: initialWindow.end,
+    displayScale: initialUi.displayScale,
+    hydrated: initial.hydrated,
+
+    hydrateFromDisk: async () => {
+      const state = get()
+      if (state.hydrated) {
+        // Ensure file backup exists for already-loaded localStorage data.
+        saveToStorage({
+          version: 1,
+          events: state.events,
+          categories: state.categories,
+          dividers: state.dividers,
+        })
+        return
+      }
+      const stored = await loadFromStorageAsync()
+      if (!stored) {
+        set({ hydrated: true })
+        const { events, categories, dividers } = get()
+        saveToStorage({ version: 1, events, categories, dividers })
+        return
+      }
+      set({
+        events: stored.events.filter(
+          (e) => e && typeof e.id === 'string' && typeof e.title === 'string',
+        ),
+        categories: stored.categories?.length > 0 ? stored.categories : defaultCategories,
+        dividers: normalizeDividers(stored.dividers ?? createSampleDividers()),
+        hydrated: true,
+      })
+    },
 
     setTimeScale: (scale) => {
       const window = getWindowForScale(scale)
@@ -368,6 +414,20 @@ export const useTimelineStore = create<TimelineState>()(
         viewportStart: new Date(center - newDuration / 2),
         viewportEnd: new Date(center + newDuration / 2),
       })
+    },
+
+    setDisplayScale: (scale) => {
+      const displayScale = clampDisplayScale(scale)
+      applyDisplayScale(displayScale)
+      saveUiPreferences({ displayScale })
+      set({ displayScale })
+    },
+
+    adjustDisplayScale: (delta) => {
+      const next = clampDisplayScale(get().displayScale + delta)
+      applyDisplayScale(next)
+      saveUiPreferences({ displayScale: next })
+      set({ displayScale: next })
     },
 
     exportData: () => {
